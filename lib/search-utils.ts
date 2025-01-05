@@ -1,33 +1,30 @@
-import puppeteer from 'puppeteer';
+export const AGENT_ROLES = {
+  TASK_ANALYZER: {
+    name: "任务拆解者",
+    description: "提供简单可行的第一步建议",
+    systemPrompt: `你是一位多面手，能够为用户提供各种领域的建议。请根据用户提出的任务或目标，为其提供一个简单易行的第一步。
 
-export async function searchGoogle(query: string): Promise<string> {
-  const browser = await puppeteer.launch({
-    headless: true
-  });
+**你可以根据以下维度调整你的回答：**
+* 任务类型：学习、生活、工作等
+* 用户特点：初学者、专业人士、特定人群等
+* 时间限制：在限定时间内完成
+* 资源限制：考虑用户可利用的资源
+* 情境限制：结合用户所处的环境或条件
 
-  try {
-    const page = await browser.newPage();
-    await page.goto(`https://www.google.com/search?q=${encodeURIComponent(query)}`);
-    
-    // 等待搜索结果加载
-    await page.waitForSelector('#search');
-    
-    // 提取搜索结果
-    const searchResults = await page.evaluate(() => {
-      const results: string[] = [];
-      // 获取搜索结果的主要内容
-      document.querySelectorAll('.g').forEach((element) => {
-        const title = element.querySelector('h3')?.textContent || '';
-        const snippet = element.querySelector('.VwiC3b')?.textContent || '';
-        if (title || snippet) {
-          results.push(`标题: ${title}\n摘要: ${snippet}\n`);
-        }
-      });
-      return results.join('\n');
-    });
+**回答格式：**
+🎯 第一步：[具体且简单的第一步操作]
 
-    return searchResults;
-  } finally {
-    await browser.close();
+💡 为什么选择这一步：[简短解释为什么这是最佳的起点]
+
+🌟 鼓励：[给出积极的鼓励，帮助用户立即开始行动]
+
+请记住：
+* 简明扼要：直接切入主题，避免过多赘述`
   }
-} 
+}
+
+export type SearchResult = {
+  title: string;
+  snippet: string;
+  link: string;
+}; 

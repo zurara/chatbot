@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Paperclip, Globe, Mic, Send } from 'lucide-react'
+import { AGENT_ROLES } from '@/lib/search-utils'
 
 // 定义消息类型
 type Message = {
@@ -60,6 +61,7 @@ const ChatInterface = () => {
   const [isLoading, setIsLoading] = useState(false)
   const abortControllerRef = useRef<AbortController | null>(null)
   const [isWebEnabled, setIsWebEnabled] = useState(false)
+  const [currentRole, setCurrentRole] = useState<keyof typeof AGENT_ROLES>('TASK_ANALYZER')
   
   // 取消未完成的请求
   useEffect(() => {
@@ -141,6 +143,10 @@ const ChatInterface = () => {
           model: API_CONFIG.model,
           messages: [
             {
+              role: 'system',
+              content: AGENT_ROLES[currentRole].systemPrompt
+            },
+            {
               role: 'user',
               content: prompt
             }
@@ -195,70 +201,72 @@ const ChatInterface = () => {
       }
 
       // AI 回答完成后，添加评论员的点评
-      const reviewerPrompt = `作为一位专业的评论员，请对以下AI助手的回答进行简短的点评。评价其回答的准确性、完整性和实用性。
+      // if (currentRole !== 'TEN_SECOND_ACTOR') {
+      //   const reviewerPrompt = `作为一位专业的评论员，请对以下AI助手的回答进行简短的点评。评价其回答的准确性、完整性和实用性。
 
-用户问题：${inputValue}
+      //   user问题：${inputValue}
 
-AI助手的回答：${fullAiResponse}
+      //   AI助手的回答：${fullAiResponse}
 
-请用简短的2-3句话进行点评。`;
+      //   请用简短的2-3句话进行点评。`;
 
-      const reviewerResponse = await fetch(API_CONFIG.baseUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${API_CONFIG.apiKey}`
-        },
-        body: JSON.stringify({
-          model: API_CONFIG.model,
-          messages: [
-            {
-              role: 'user',
-              content: reviewerPrompt
-            }
-          ],
-          stream: true
-        })
-      });
+      //   const reviewerResponse = await fetch(API_CONFIG.baseUrl, {
+      //     method: 'POST',
+      //     headers: {
+      //       'Content-Type': 'application/json',
+      //       'Authorization': `Bearer ${API_CONFIG.apiKey}`
+      //     },
+      //     body: JSON.stringify({
+      //       model: API_CONFIG.model,
+      //       messages: [
+      //         {
+      //           role: 'user',
+      //           content: reviewerPrompt
+      //         }
+      //       ],
+      //       stream: true
+      //     })
+      //   });
 
-      if (!reviewerResponse.ok) {
-        throw new Error('评论员API请求失败')
-      }
+      //   if (!reviewerResponse.ok) {
+      //     throw new Error('评论员API请求失败')
+      //   }
 
-      // 创建评论员消息
-      const reviewerMessage: Message = {
-        id: Date.now() + 2,
-        content: '',
-        role: 'reviewer'
-      }
-      setMessages(prev => [...prev, reviewerMessage])
+      //   // 创建评论员消息
+      //   const reviewerMessage: Message = {
+      //     id: Date.now() + 2,
+      //     content: '',
+      //     role: 'reviewer'
+      //   }
+      //   setMessages(prev => [...prev, reviewerMessage])
 
-      // 处理评论员的流式响应
-      const reviewerReader = reviewerResponse.body?.getReader()
-      while (reviewerReader) {
-        const { done, value } = await reviewerReader.read()
-        if (done) break
+      //   // 处理评论员的流式响应
+      //   const reviewerReader = reviewerResponse.body?.getReader()
+      //   while (reviewerReader) {
+      //     const { done, value } = await reviewerReader.read()
+      //     if (done) break
 
-        const chunk = decoder.decode(value)
-        const lines = chunk.split('\n')
-        
-        for (const line of lines) {
-          if (line.startsWith('data: ') && line !== 'data: [DONE]') {
-            try {
-              const data: StreamChunk = JSON.parse(line.slice(6))
-              const content = data.choices[0]?.delta?.content || ''
-              
-              setMessages(prev => prev.map(msg => 
-                msg.id === reviewerMessage.id 
-                  ? { ...msg, content: msg.content + content }
-                  : msg
-              ))
-            } catch (e) {
-              console.error('解析评论员响应数据失败:', e)
-            }
-          }
-        }
-      }
+      //     const chunk = decoder.decode(value)
+      //     const lines = chunk.split('\n')
+      //     
+      //     for (const line of lines) {
+      //       if (line.startsWith('data: ') && line !== 'data: [DONE]') {
+      //         try {
+      //           const data: StreamChunk = JSON.parse(line.slice(6))
+      //           const content = data.choices[0]?.delta?.content || ''
+      //           
+      //           setMessages(prev => prev.map(msg => 
+      //             msg.id === reviewerMessage.id 
+      //               ? { ...msg, content: msg.content + content }
+      //               : msg
+      //           ))
+      //         } catch (e) {
+      //           console.error('解析评论员响应数据失败:', e)
+      //         }
+      //       }
+      //     }
+      //   }
+      // }
 
     } catch (error: any) {
       if (error?.name === 'AbortError') {
@@ -280,6 +288,19 @@ AI助手的回答：${fullAiResponse}
 
   return (
     <Card className="w-full max-w-3xl mx-auto h-[600px] flex flex-col">
+      <div className="border-b p-2">
+        <select 
+          value={currentRole}
+          onChange={(e) => setCurrentRole(e.target.value as keyof typeof AGENT_ROLES)}
+          className="w-full p-2 rounded border"
+        >
+          {Object.entries(AGENT_ROLES).map(([key, role]) => (
+            <option key={key} value={key}>
+              {role.name} - {role.description}
+            </option>
+          ))}
+        </select>
+      </div>
       <CardContent className="flex-1 overflow-auto p-4 space-y-4">
         <div className="space-y-4">
           {messages.map((message) => (
